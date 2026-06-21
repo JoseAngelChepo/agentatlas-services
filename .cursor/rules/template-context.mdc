@@ -1,0 +1,32 @@
+---
+description: agentatlas-services API context
+alwaysApply: true
+---
+
+# agentatlas-services — project context
+
+NestJS API for **agentatlas**. Paired with **`agentatlas-platform`**.
+
+| Repo | Role |
+|------|------|
+| **`agentatlas-services`** (this repo) | Backend — auth, users, swarms, inference, tools, scraper |
+| **`agentatlas-platform`** | Next.js — swarm editor, test panel, admin |
+
+When changing HTTP contracts, update this repo first; align `agentatlas-platform/src/data/api/server/`.
+
+## Product scope
+
+Swarms platform: auth, users, swarms orchestrator, inference, tools, and scraper.
+
+## Core modules
+
+- `src/swarms/` — orchestrator, graphs, runs, workers
+- `src/inference/` — LLM providers
+- `src/tools/` — agent function registry
+- `src/auth/`, `src/users/` — auth & accounts
+
+## Platform client
+
+- API client: `agentatlas-platform/src/data/api/server/index.ts`
+- Swarm workspace UI spec: `docs/SWARMS-WORKSPACE.md`
+- Streaming: `docs/INFERENCE.md`

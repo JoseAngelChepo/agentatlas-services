@@ -1,0 +1,22 @@
+# dependencies & build
+node_modules/
+dist/
+*.tsbuildinfo
+
+# env & secrets (never commit)
+.env
+.env.*
+!.env.example
+credentials.json
+*.pem
+*.key
+secrets/
+
+# OS & IDE (local only)
+.DS_Store
+.vscode/
+
+# Cursor — commit `.cursor/rules/`; ignore local session artifacts
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
