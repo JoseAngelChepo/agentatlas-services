@@ -2,7 +2,7 @@
   "name": "agentatlas-services",
   "version": "0.1.0",
   "description": "NestJS API for agentatlas swarms platform",
-  "private": true,
+  "license": "MIT",
   "engines": {
     "node": ">=20"
   },
