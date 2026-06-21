@@ -382,7 +382,7 @@ async function runSwarmStream(
 ### Out of scope (future)
 
 - Idempotency keys per turn
-- Rate limits / spend floors (see floors module)
+- Rate limits / spend caps (configure per provider account)
 - Extra prompt roots beyond `goal` / `runInput` / `upstream` / `shared` — see [`SWARMS-AGENT-IO.md`](./SWARMS-AGENT-IO.md#prompt-variables--in-systemprompt)
 - Tool / function calling
 

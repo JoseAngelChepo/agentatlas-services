@@ -787,7 +787,7 @@ See [`TOOLS.md`](./TOOLS.md).
 | `GET` | `/tools` | Agent tool catalog |
 | `POST` | `/tools/:id/run` | Run tool (`webpage_scrape`, `run_swarm`, …) |
 | `POST` | `/tools/webpage-scrape/run` | Scrape URL |
-| `GET` | `/tools/catalog?companyId=` | Platform integrations for prompts |
+| `GET` | `/tools/catalog` | Platform integrations for prompts |
 | `GET` | `/tools/integrations` | Integrations + connection status |
 | `POST` | `/tools/integrations/:platformToolKey/connect` | Connect integration |
 | `DELETE` | `/tools/integrations/:platformToolKey/connect` | Disconnect |

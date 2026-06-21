@@ -206,7 +206,7 @@ Worker B upstream[0] ≈ { "summary": "…", "sources": […] }
 | `shared` | `draft` | `shared.draft` on the parent run |
 | `static` | — | `staticValue` literal / JSON |
 
-Leave `inputFields` empty to **passthrough** the full upstream object into the child `runInput` (merged with forwarded floor context and optional `passShared`).
+Leave `inputFields` empty to **passthrough** the full upstream object into the child `runInput` (merged with optional `passShared`).
 
 **Failed branch:** nodes on the `failed` handle still receive an upstream payload, but the child End output is usually `null`. Downstream prompts may see metadata such as `kind: "swarm"`, `branchHandle: "failed"`, and `error` instead of End keys — design failed-branch workers accordingly.
 
@@ -347,7 +347,7 @@ Child swarms exposed as **named OpenAI functions** on the worker. Each id in `sw
 }
 ```
 
-The model’s JSON args become the **child swarm run input**. Execution is linked to the parent run as a sub-swarm (nesting limits, access checks, floor context forwarding).
+The model’s JSON args become the **child swarm run input**. Execution is linked to the parent run as a sub-swarm (nesting limits and access checks apply).
 
 | Field | Description |
 |-------|-------------|

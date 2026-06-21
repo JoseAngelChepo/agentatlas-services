@@ -250,7 +250,7 @@ I/O contracts: [`SWARMS-AGENT-IO.md`](./SWARMS-AGENT-IO.md).
 | **Instructions** | `systemPrompt` | Always the first `system` message sent to the model. |
 | **Messages** | `promptMessages[]` | Optional extra `{ role: "system" \| "user", content }` entries after Instructions. Use for extra system rules or a dedicated `user` payload (e.g. `{{runInput.message}}` for Responses `input`). |
 | **Add Local Context** | — (inserts into active editor) | Inserts `{{goal}}`, `{{runInput.*}}`, `{{shared.*}}`, upstream tokens. No enable flags — add only the tokens you need. |
-| **Add Global Context** | — | Company / department `{{runInput.*}}` tokens when the run carries enriched input. |
+| **Add Global Context** | — | Optional `{{runInput.*}}` tokens when the caller enriches run input. |
 | **Tools** | `openaiTools`, `agentTools`, `swarmTools` | OpenAI Direct only. Hosted web search + platform tools (`webpage_scrape`, …) + **Sub-swarms** picker. See [`TOOLS.md`](./TOOLS.md#workspace-ui) and **`agentatlas-platform/docs/SWARMS-TOOLS.md`**. |
 
 **Runtime order:** Instructions (+ auto **Connected tools** block when functions are configured) → `promptMessages` only. Goal, run input, shared, and upstream are **not** auto-injected — use `{{…}}` tokens or explicit message bodies.
