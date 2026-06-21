@@ -22,5 +22,6 @@ export function mergeAgentToolsIntoOpenAiConfig(
   return {
     ...openaiTools,
     functions: merged,
+    toolChoice: openaiTools.toolChoice ?? 'auto',
   };
 }

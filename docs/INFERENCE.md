@@ -39,7 +39,7 @@ RoutingWorkerExecutorService  ◄── INFERENCE_MODE (auto | llm | stub)
 | Setup API | `GET /inference/setup` |
 | OpenAI pricing (run cost) | `src/inference/pricing/` (list prices; used when aggregating `swarm_runs.costUsd`) |
 | Swarm run stats aggregation | `src/swarms/stats/` |
-| Browser scrape pricing | `src/scraper/pricing/browser-scrape-pricing.ts` ($0.09/hr) |
+| Browser scrape pricing | `src/scraper/pricing/browser-scrape-pricing.ts` (Firecrawl credit estimate) |
 
 Injection token `AGENT_WORKER_EXECUTOR` resolves to **`RoutingWorkerExecutorService`**.
 

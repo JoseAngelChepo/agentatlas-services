@@ -1,22 +1,49 @@
-import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, OnModuleInit, Optional } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import type { OpenAiFunctionToolDefinition } from '../../inference/types/openai-worker-tools.types';
 import type { AgentTool, ToolCatalogEntry } from '../types/agent-tool.interface';
 import { ToolId } from '../types/tool-id.enum';
+import { capToolResultForModel } from '../utils/cap-tool-result-for-model';
 import { agentToolToOpenAiFunction } from '../utils/to-openai-function-tool';
 import type { ToolExecutionContext } from '../types/tool-execution-context';
+import { AGENT_TOOL_IMPLEMENTATIONS } from './agent-tool-implementations';
 import { AGENT_TOOLS } from './agent-tools.token';
 
 @Injectable()
-export class ToolRegistryService {
+export class ToolRegistryService implements OnModuleInit {
   private readonly logger = new Logger(ToolRegistryService.name);
   private readonly tools = new Map<ToolId, AgentTool>();
 
   constructor(
+    private readonly moduleRef: ModuleRef,
     @Optional() @Inject(AGENT_TOOLS) agentTools?: AgentTool | AgentTool[],
   ) {
-    for (const tool of normalizeAgentTools(agentTools)) {
-      this.register(tool);
+    this.registerAll(normalizeAgentTools(agentTools));
+  }
+
+  /**
+   * ToolsModule ↔ SwarmsModule circular imports can leave `AGENT_TOOLS` empty or partial
+   * in the constructor. Resolve every concrete tool class after init.
+   */
+  onModuleInit(): void {
+    for (const ToolClass of AGENT_TOOL_IMPLEMENTATIONS) {
+      try {
+        const tool = this.moduleRef.get(ToolClass, { strict: false });
+        this.register(tool);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`Agent tool ${ToolClass.name} not resolved: ${message}`);
+      }
     }
+
+    if (this.tools.size === 0) {
+      this.logger.error('ToolRegistryService started with zero agent tools');
+      return;
+    }
+
+    this.logger.log(
+      `Tool registry ready (${this.tools.size} tools: ${[...this.tools.keys()].join(', ')})`,
+    );
   }
 
   list(): ToolCatalogEntry[] {
@@ -87,7 +114,7 @@ export class ToolRegistryService {
 
       this.logger.log(`[tool:${name}] agent call args=${JSON.stringify(args)}`);
       const result = await tool.execute(args, context);
-      const output = JSON.stringify(result);
+      const output = JSON.stringify(capToolResultForModel(result));
       this.logger.log(
         `[tool:${name}] agent result preview=${output.length > 800 ? `${output.slice(0, 800)}… (${output.length} chars total)` : output}`,
       );
@@ -103,9 +130,15 @@ export class ToolRegistryService {
     }
   }
 
+  private registerAll(tools: AgentTool[]): void {
+    for (const tool of tools) {
+      this.register(tool);
+    }
+  }
+
   private register(tool: AgentTool): void {
     if (this.tools.has(tool.id)) {
-      throw new Error(`Duplicate agent tool registration: ${tool.id}`);
+      return;
     }
     this.tools.set(tool.id, tool);
     this.logger.log(`Registered agent tool: ${tool.id}`);

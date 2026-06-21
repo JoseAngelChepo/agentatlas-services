@@ -77,7 +77,12 @@ Optional list on **`agent_workers`**. Each id becomes an OpenAI **function tool*
 
 | Tool id | Name | Config required | Description |
 |---------|------|-----------------|-------------|
-| `webpage_scrape` | Webpage scrape | `CLOUDFLARE_*` Browser Run env | Fetch a URL via Cloudflare; returns markdown in JSON |
+| `webpage_scrape` | Webpage scrape | `FIRECRAWL_API_KEY` | Fetch a URL via Firecrawl; returns markdown in JSON |
+| `web_search` | Web search | `FIRECRAWL_API_KEY` | Search the web and return results with markdown content |
+| `research_search_papers` | Research — search papers | `FIRECRAWL_API_KEY` | Search academic papers by topic, author, or category |
+| `research_paper` | Research — inspect/read paper | `FIRECRAWL_API_KEY` | Paper metadata or full-text passages for a question |
+| `research_related_papers` | Research — related papers | `FIRECRAWL_API_KEY` | Expand from a seed paper (similar, citers, references) |
+| `research_search_github` | Research — search GitHub | `FIRECRAWL_API_KEY` | Search GitHub issues, PRs, and READMEs |
 | `run_swarm` | Run swarm | — | Execute any accessible swarm by id (see [whitelist](#whitelist)). Resolved by **`SwarmAsToolService`**, not `ToolRegistryService`. |
 
 Catalog (including `configured` flag): `GET /inference/setup` → `agentTools.catalog`, or `GET /tools`.
@@ -100,6 +105,53 @@ Catalog (including `configured` flag): `GET /inference/setup` → `agentTools.ca
 **Direct API:** `POST /tools/webpage-scrape/run` with `{ "url": "https://..." }`.
 
 Requires authenticated user context. During a swarm run, scrape requests are attributed to the swarm run (`ScrapeRequestSource.AGENT`).
+
+Uses Firecrawl `POST /v2/scrape` (replaces the former Cloudflare Browser Run integration).
+
+### `web_search`
+
+Search the web and optionally scrape full-page markdown in one call (Firecrawl `POST /v2/search`).
+
+**Function parameters:**
+
+```json
+{
+  "type": "object",
+  "required": ["query"],
+  "properties": {
+    "query": { "type": "string" },
+    "limit": { "type": "integer", "minimum": 1, "maximum": 10 },
+    "sources": { "type": "array", "items": { "enum": ["web", "news", "images"] } },
+    "categories": { "type": "array", "items": { "enum": ["github", "research", "pdf"] } },
+    "includeDomains": { "type": "array", "items": { "type": "string" } },
+    "excludeDomains": { "type": "array", "items": { "type": "string" } },
+    "country": { "type": "string" },
+    "tbs": { "type": "string", "description": "Time filter, e.g. qdr:w for past week" }
+  },
+  "additionalProperties": false
+}
+```
+
+**Direct API:** `POST /tools/web_search/run` with `{ "query": "..." }`.
+
+### Research tools (Firecrawl Research Index)
+
+Academic and engineering research via Firecrawl `GET /v2/search/research/*`:
+
+| Tool id | Purpose |
+|---------|---------|
+| `research_search_papers` | Search paper abstracts (`query`, optional `authors`, `categories`, `from`/`to`) |
+| `research_paper` | Inspect metadata by `paperId`, or read passages with optional `question` |
+| `research_related_papers` | Expand from a seed `paperId` with `intent` and optional `mode` (`similar`, `citers`, `references`) |
+| `research_search_github` | Search GitHub issues, PRs, discussions, and READMEs |
+
+Example worker config for a research agent:
+
+```json
+{
+  "agentTools": ["web_search", "research_search_papers", "research_paper", "research_related_papers"]
+}
+```
 
 ### `run_swarm`
 

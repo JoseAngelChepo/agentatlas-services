@@ -16,7 +16,7 @@ export class ScrapeRequest {
   @Prop({ type: String, enum: ScrapeRequestStatus, default: ScrapeRequestStatus.PENDING })
   status: ScrapeRequestStatus;
 
-  /** Raw markdown returned by Cloudflare Browser Run. */
+  /** Raw markdown returned by Firecrawl scrape. */
   @Prop({ type: String, default: null })
   rawContent: string | null;
 

@@ -8,6 +8,7 @@ import { DEFAULT_WHILE_MAX_ITERATIONS } from '../types/while-node.types';
 import type { UserApprovalNodeData } from '../types/user-approval-node.types';
 import type { UserInputNodeData } from '../types/user-input-node.types';
 import { isStartGraphNode } from './start-node';
+import { plainSubdocument } from '../../common/utils/plain-mongoose';
 
 export type IndexedGraphNode = {
   id: string;
@@ -33,6 +34,7 @@ export function resolveNodeKind(node: SwarmGraphNode): GraphNodeKind {
     explicitKind === GraphNodeKind.IF_ELSE ||
     explicitKind === GraphNodeKind.WHILE ||
     explicitKind === GraphNodeKind.SCRAPER ||
+    explicitKind === GraphNodeKind.RESEARCH_PAPERS ||
     explicitKind === GraphNodeKind.SWARM ||
     explicitKind === GraphNodeKind.START ||
     explicitKind === GraphNodeKind.USER_APPROVAL ||
@@ -55,6 +57,9 @@ export function resolveNodeKind(node: SwarmGraphNode): GraphNodeKind {
   if (type === GraphNodeKind.SCRAPER) {
     return GraphNodeKind.SCRAPER;
   }
+  if (type === GraphNodeKind.RESEARCH_PAPERS) {
+    return GraphNodeKind.RESEARCH_PAPERS;
+  }
   if (type === GraphNodeKind.SWARM) {
     return GraphNodeKind.SWARM;
   }
@@ -76,6 +81,9 @@ export function resolveNodeKind(node: SwarmGraphNode): GraphNodeKind {
   }
   if (dataKind === GraphNodeKind.SCRAPER) {
     return GraphNodeKind.SCRAPER;
+  }
+  if (dataKind === GraphNodeKind.RESEARCH_PAPERS) {
+    return GraphNodeKind.RESEARCH_PAPERS;
   }
   if (dataKind === GraphNodeKind.SWARM) {
     return GraphNodeKind.SWARM;
@@ -136,7 +144,7 @@ export function buildGraphIndex(graph: SwarmGraph): GraphIndex {
       id,
       kind,
       workerId: raw.workerId,
-      data: raw.data,
+      data: plainSubdocument<Record<string, unknown>>(raw.data),
       raw,
     };
     nodesById.set(id, indexed);
@@ -185,6 +193,31 @@ export function parseWhileNodeData(data: Record<string, unknown> | undefined): W
 
 export function workerNodeIdForWorkerKey(index: GraphIndex, workerKey: string): string {
   return index.workerNodeIdByWorkerKey.get(workerKey) ?? workerKey;
+}
+
+/** Resolves the worker graph node for execution (canvas id or legacy worker id). */
+export function resolveWorkerGraphNode(
+  graphIndex: GraphIndex,
+  nodeId: string,
+  workerId?: Types.ObjectId | string,
+): IndexedGraphNode | undefined {
+  const direct = graphIndex.nodesById.get(nodeId);
+  if (direct?.kind === GraphNodeKind.WORKER) {
+    return direct;
+  }
+
+  const workerKey = workerId?.toString();
+  if (workerKey) {
+    const mappedId = graphIndex.workerNodeIdByWorkerKey.get(workerKey);
+    if (mappedId) {
+      const mapped = graphIndex.nodesById.get(mappedId);
+      if (mapped?.kind === GraphNodeKind.WORKER) {
+        return mapped;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 export function collectAllNodeIds(index: GraphIndex): string[] {

@@ -64,7 +64,7 @@ export function collectWorkerToolPromptEntries(
 
 export function buildWorkerToolsPromptBlock(
   entries: WorkerToolPromptEntry[],
-  options?: { hasSwarmTools?: boolean },
+  options?: { hasSwarmTools?: boolean; hasRegistryTools?: boolean },
 ): string | null {
   if (entries.length === 0) {
     return null;
@@ -72,14 +72,24 @@ export function buildWorkerToolsPromptBlock(
 
   const sections = entries.map(formatWorkerToolPromptSection);
   const hasSwarmTools = options?.hasSwarmTools === true;
+  const hasRegistryTools = options?.hasRegistryTools === true;
 
-  const intro = hasSwarmTools
-    ? [
-        'You MUST call the matching sub-swarm function below before answering the user.',
-        'Do not reply from your own knowledge when a sub-swarm tool applies.',
-        'After the tool returns `status: done`, base your entire answer on `output` — never ignore or override it.',
-      ].join(' ')
-    : 'When a user request matches a tool below, call that function first — do not guess or refuse without trying the tool.';
+  let intro: string;
+  if (hasSwarmTools) {
+    intro = [
+      'You MUST call the matching sub-swarm function below before answering the user.',
+      'Do not reply from your own knowledge when a sub-swarm tool applies.',
+      'After the tool returns `status: done`, base your entire answer on `output` — never ignore or override it.',
+    ].join(' ');
+  } else if (hasRegistryTools) {
+    intro = [
+      'You MUST call a connected platform tool below when the user request can be fulfilled by one (e.g. search arXiv papers, web search, scrape a URL).',
+      'Do not tell the user to search manually or visit websites yourself — call the tool first, then answer from its JSON result.',
+    ].join(' ');
+  } else {
+    intro =
+      'When a user request matches a tool below, call that function first — do not guess or refuse without trying the tool.';
+  }
 
   return ['## Connected tools', '', intro, '', ...sections].join('\n');
 }

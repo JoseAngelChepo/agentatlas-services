@@ -329,7 +329,12 @@ Platform function tools invoked by the model during inference (OpenAI Responses 
 
 | Tool id | Description |
 |---------|-------------|
-| `webpage_scrape` | Cloudflare Browser Run scrape → markdown JSON |
+| `webpage_scrape` | Firecrawl scrape → markdown JSON |
+| `web_search` | Firecrawl web search + markdown results |
+| `research_search_papers` | Firecrawl Research Index — search papers |
+| `research_paper` | Firecrawl Research — inspect/read paper |
+| `research_related_papers` | Firecrawl Research — related papers |
+| `research_search_github` | Firecrawl Research — GitHub search |
 | `run_swarm` | Run another swarm by id (`swarmId` + optional `input`). **Omitted at inference** when `swarmTools` is non-empty — use dedicated `swarm_<id>` functions instead. |
 
 Catalog and env status: `GET /inference/setup` → `agentTools.catalog`, or `GET /tools`.

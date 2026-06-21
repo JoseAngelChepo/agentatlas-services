@@ -13,6 +13,7 @@ import {
   type IndexedGraphNode,
 } from './graph-index';
 import { parseScraperNodeData } from '../orchestrator/evaluate-scraper-node';
+import { parseResearchPapersNodeData } from '../orchestrator/evaluate-research-papers-node';
 import { parseSwarmNodeData } from '../orchestrator/evaluate-swarm-node';
 
 export function sseNodeKind(indexed: IndexedGraphNode): SwarmGraphNodeKind {
@@ -21,6 +22,8 @@ export function sseNodeKind(indexed: IndexedGraphNode): SwarmGraphNodeKind {
       return 'start';
     case GraphNodeKind.SCRAPER:
       return 'scraper';
+    case GraphNodeKind.RESEARCH_PAPERS:
+      return 'research_papers';
     case GraphNodeKind.SWARM:
       return 'swarm';
     case GraphNodeKind.IF_ELSE:
@@ -54,6 +57,12 @@ export function sseNodeName(
       return typeof data.label === 'string' && data.label.trim()
         ? data.label.trim()
         : 'Web scrape';
+    }
+    case GraphNodeKind.RESEARCH_PAPERS: {
+      const data = parseResearchPapersNodeData(indexed.data);
+      return typeof data.label === 'string' && data.label.trim()
+        ? data.label.trim()
+        : 'Research papers';
     }
     case GraphNodeKind.SWARM: {
       const data = parseSwarmNodeData(indexed.data);

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model, Types } from 'mongoose';
-import { CloudflareBrowserRunService } from '../tools/providers/cloudflare-browser-run.service';
+import { FirecrawlService } from '../tools/providers/firecrawl.service';
 import type { ListScrapeRequestsQueryDto } from './dto/list-scrape-requests-query.dto';
 import { ScrapeRequest, ScrapeRequestDocument } from './schemas/scrape-request.schema';
 import { ScrapeRequestStatus } from './types/scrape-request-status.enum';
@@ -29,7 +29,7 @@ export class ScraperService {
   constructor(
     @InjectModel(ScrapeRequest.name)
     private readonly scrapeRequestModel: Model<ScrapeRequestDocument>,
-    private readonly browserRun: CloudflareBrowserRunService,
+    private readonly firecrawl: FirecrawlService,
     private readonly config: ConfigService,
   ) {}
 
@@ -58,8 +58,8 @@ export class ScraperService {
     return compressed;
   }
 
-  isBrowserRunConfigured(): boolean {
-    return this.browserRun.isConfigured();
+  isScrapeConfigured(): boolean {
+    return this.firecrawl.isConfigured();
   }
 
   async scrapeWebpage(
@@ -95,12 +95,16 @@ export class ScraperService {
     const started = Date.now();
 
     try {
-      const content = await this.browserRun.fetchMarkdown(input.url, {
+      const scraped = await this.firecrawl.scrapeUrl(input.url, {
         waitUntil: input.waitUntil,
       });
       const latencyMs = Date.now() - started;
 
-      const links = extractLinksFromMarkdown(content, input.url);
+      const content = scraped.markdown;
+      const links =
+        scraped.links.length > 0
+          ? scraped.links
+          : extractLinksFromMarkdown(content, input.url);
       const compressedContent = this.compressRawContent(content);
 
       record.status = ScrapeRequestStatus.COMPLETED;

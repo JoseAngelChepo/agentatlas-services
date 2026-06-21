@@ -18,7 +18,7 @@ export class WebpageScrapeTool extends BaseAgentTool<
   readonly id = ToolId.WEBPAGE_SCRAPE;
   readonly name = 'Webpage scrape';
   readonly description =
-    'Fetch a webpage with Cloudflare and return its readable content as markdown text inside JSON.';
+    'Fetch a webpage with Firecrawl and return its readable content as markdown text inside JSON.';
   readonly promptHints = {
     whenToUse:
       'When the user needs live content from a specific public webpage and provides or implies a URL.',
@@ -44,7 +44,7 @@ export class WebpageScrapeTool extends BaseAgentTool<
   }
 
   isConfigured(): boolean {
-    return this.scraperService.isBrowserRunConfigured();
+    return this.scraperService.isScrapeConfigured();
   }
 
   async execute(

@@ -7,6 +7,15 @@ import { SwarmContext } from '../context/swarm-context';
 import { evaluateIfElseNode, type IfElseEvaluationDebug } from './evaluate-if-else-node';
 import { evaluateWhileNode } from './evaluate-while-node';
 import { buildPreviewWorkerInput, resolveWorkerInput } from './resolve-input';
+import {
+  parseScalableAgentNodeData,
+  resolveScalableInputArray,
+  rootFieldFromScalableArrayExpression,
+  expressionForScalableArrayConfig,
+  buildScalableWorkerOutput,
+  readScalableOutputArrayKey,
+} from './evaluate-scalable-agent-node';
+import type { AgentWorkerRunInput } from '../context/swarm-context.types';
 import { GraphNodeKind } from '../types/graph-node-kind.enum';
 import type { IfElseNodeOutput } from '../types/if-else-node.types';
 import type { WhileNodeOutput } from '../types/while-node.types';
@@ -40,9 +49,16 @@ import { SwarmRunApprovalsService } from '../services/swarm-run-approvals.servic
 import { SwarmRunInputEnrichmentService } from '../services/swarm-run-input-enrichment.service';
 import type { SwarmDocument } from '../schemas/swarm.schema';
 import { ScraperService } from '../../scraper/scraper.service';
+import { ResearchService } from '../../research/research.service';
 import { parseScraperNodeData, executeScraperNode } from './evaluate-scraper-node';
 import type { ScraperNodeOutput } from '../../scraper/types/scraper-node.types';
 import { SCRAPER_SUCCESS_HANDLE } from '../../scraper/types/scraper-node.types';
+import {
+  parseResearchPapersNodeData,
+  executeResearchPapersNode,
+} from './evaluate-research-papers-node';
+import type { ResearchPapersNodeOutput } from '../../research/types/research-papers-node.types';
+import { RESEARCH_PAPERS_SUCCESS_HANDLE } from '../../research/types/research-papers-node.types';
 import {
   executeSwarmNode,
   parseSwarmNodeData,
@@ -64,6 +80,7 @@ import {
   collectWorkerIdsFromGraph,
   parseIfElseNodeData,
   parseWhileNodeData,
+  resolveWorkerGraphNode,
   workerNodeIdForWorkerKey,
   type GraphIndex,
 } from '../utils/graph-index';
@@ -157,6 +174,7 @@ export class SwarmOrchestratorService {
     private readonly agentRunsService: AgentRunsService,
     private readonly agentWorkersService: AgentWorkersService,
     private readonly scraperService: ScraperService,
+    private readonly researchService: ResearchService,
     private readonly swarmRunApprovalsService: SwarmRunApprovalsService,
     private readonly runInputEnrichment: SwarmRunInputEnrichmentService,
     @Inject(AGENT_WORKER_EXECUTOR)
@@ -2342,6 +2360,68 @@ export class SwarmOrchestratorService {
               return;
             }
 
+            if (indexed.kind === GraphNodeKind.RESEARCH_PAPERS) {
+              const data = parseResearchPapersNodeData(indexed.data);
+              const nodeName =
+                typeof data.label === 'string' && data.label.trim()
+                  ? data.label.trim()
+                  : 'Research papers';
+              const researchStep = streaming?.nextStep();
+              if (streaming && researchStep != null) {
+                streaming.emit({
+                  type: 'node_start',
+                  nodeId,
+                  nodeKind: 'research_papers',
+                  nodeName,
+                  step: researchStep,
+                  wave,
+                });
+              }
+              const output = await executeResearchPapersNode({
+                researchService: this.researchService,
+                data,
+                context,
+                graph: schedulingGraph,
+                graphIndex,
+                nodeId,
+                workers,
+              });
+              if (streaming && researchStep != null) {
+                streaming.emit({
+                  type: 'node_done',
+                  nodeId,
+                  nodeKind: 'research_papers',
+                  nodeName,
+                  step: researchStep,
+                  wave,
+                  output,
+                  latencyMs: Date.now() - nodeStarted,
+                });
+              }
+              this.logger.log(
+                `[research_papers:${nodeId}] query=${output.query} status=${output.status} papers=${output.paperCount} branch=${output.branchHandle}`,
+              );
+              context.setNodeOutput(nodeId, output);
+              completed.add(nodeId);
+              this.activateBranchDownstream({
+                fromNodeId: nodeId,
+                branchHandle: output.branchHandle,
+                edges: schedulingGraph.edges,
+                graphIndex,
+                skipped,
+                branchActivated,
+                skipEmit: streaming
+                  ? {
+                      emit: streaming.emit,
+                      wave,
+                      fromNodeId: nodeId,
+                      workers,
+                    }
+                  : undefined,
+              });
+              return;
+            }
+
             if (indexed.kind === GraphNodeKind.SWARM) {
               const data = parseSwarmNodeData(indexed.data);
               const swarmName =
@@ -2597,6 +2677,15 @@ export class SwarmOrchestratorService {
         );
         if (wiresToTarget.length === 1 && wiresToTarget[0] === edge) {
           return { ...edge, sourceHandle: SCRAPER_SUCCESS_HANDLE };
+        }
+      }
+      if (fromNode?.kind === GraphNodeKind.RESEARCH_PAPERS) {
+        const toKey = edgeEndpointNodeId(edge.to.toString(), graphIndex);
+        const wiresToTarget = edges.filter(
+          (candidate) => edgeEndpointNodeId(candidate.to.toString(), graphIndex) === toKey,
+        );
+        if (wiresToTarget.length === 1 && wiresToTarget[0] === edge) {
+          return { ...edge, sourceHandle: RESEARCH_PAPERS_SUCCESS_HANDLE };
         }
       }
       if (fromNode?.kind === GraphNodeKind.SWARM) {
@@ -3011,6 +3100,34 @@ export class SwarmOrchestratorService {
       isExit,
     } = params;
 
+    const indexed = resolveWorkerGraphNode(graphIndex, nodeId, workerId);
+    const scalableConfig = parseScalableAgentNodeData(indexed?.data);
+    if (scalableConfig.scalable) {
+      const executionNodeId = indexed?.id ?? nodeId;
+      try {
+        return await this.executeScalableGraphWorker({
+          nodeId: executionNodeId,
+          workerId,
+          worker,
+          graph,
+          graphIndex,
+          context,
+          swarmRunId,
+          workers,
+          streaming,
+          wave,
+          scalableConfig,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (isEntry || isExit) {
+          throw err;
+        }
+        this.logger.warn(`Scalable worker ${workerId.toString()} failed (continuing join): ${message}`);
+        return { failed: true, error: message, workerId: workerId.toString() };
+      }
+    }
+
     try {
       if (streaming) {
         return await streaming.execute(nodeId, workerId, worker, wave);
@@ -3032,6 +3149,237 @@ export class SwarmOrchestratorService {
       this.logger.warn(`Worker ${workerId.toString()} failed (continuing join): ${message}`);
       return { failed: true, error: message, workerId: workerId.toString() };
     }
+  }
+
+  private buildShardWorkerInput(
+    baseInput: AgentWorkerRunInput,
+    item: unknown,
+    shardIndex: number,
+    arrayExpression: string,
+  ): AgentWorkerRunInput {
+    const fieldRoot = rootFieldFromScalableArrayExpression(arrayExpression);
+    const baseUpstream =
+      baseInput.upstream.length > 0 && baseInput.upstream[0] != null
+        ? (baseInput.upstream[0] as Record<string, unknown>)
+        : {};
+
+    const upstreamEntry: Record<string, unknown> = {
+      item,
+      shardIndex,
+    };
+
+    if (fieldRoot) {
+      upstreamEntry[fieldRoot] = { item, shardIndex };
+      for (const [key, value] of Object.entries(baseUpstream)) {
+        if (key === fieldRoot || key === 'item' || key === 'shardIndex') {
+          continue;
+        }
+        upstreamEntry[key] = value;
+      }
+    } else {
+      Object.assign(upstreamEntry, baseUpstream, { item, shardIndex });
+    }
+
+    return {
+      ...baseInput,
+      upstream: [upstreamEntry, ...baseInput.upstream.slice(1)],
+      runInput: {
+        ...baseInput.runInput,
+        item,
+        shardIndex,
+      },
+    };
+  }
+
+  private async executeScalableGraphWorker(params: {
+    nodeId: string;
+    workerId: Types.ObjectId;
+    worker: AgentWorkerDocument;
+    graph: SwarmGraph;
+    graphIndex: GraphIndex;
+    context: SwarmContext;
+    swarmRunId: Types.ObjectId;
+    workers: Map<string, AgentWorkerDocument>;
+    streaming?: SwarmTraversalStreaming;
+    wave: number;
+    scalableConfig: ReturnType<typeof parseScalableAgentNodeData>;
+  }): Promise<Record<string, unknown>> {
+    const {
+      nodeId,
+      workerId,
+      worker,
+      graph,
+      graphIndex,
+      context,
+      swarmRunId,
+      workers,
+      streaming,
+      wave,
+      scalableConfig,
+    } = params;
+
+    const workerKey = workerId.toString();
+    const items = resolveScalableInputArray(
+      graph,
+      graphIndex,
+      context,
+      nodeId,
+      workers,
+      scalableConfig,
+    );
+    const baseInput = resolveWorkerInput(
+      workerId,
+      worker,
+      graph,
+      context,
+      workers,
+      graphIndex,
+    );
+
+    const step = streaming?.nextStep() ?? 0;
+    const nodeStarted = Date.now();
+
+    if (streaming) {
+      streaming.emit({
+        type: 'node_start',
+        nodeId,
+        nodeKind: 'worker',
+        nodeName: worker.name,
+        step,
+        wave,
+      });
+      streaming.emit({
+        type: 'scale_expand',
+        nodeId,
+        count: items.length,
+        wave,
+      });
+    }
+
+    const shardOutputs = await Promise.all(
+      items.map(async (item, shardIndex) => {
+        const shardStarted = Date.now();
+        if (streaming) {
+          streaming.emit({
+            type: 'scale_shard_start',
+            nodeId,
+            shardIndex,
+            wave,
+          });
+          streaming.emit({
+            type: 'worker_start',
+            nodeId,
+            workerId: workerKey,
+            workerName: worker.name,
+            step,
+            wave,
+            shardIndex,
+          });
+        }
+
+        const shardInput = this.buildShardWorkerInput(
+          baseInput,
+          item,
+          shardIndex,
+          expressionForScalableArrayConfig(scalableConfig),
+        );
+        let result: Awaited<ReturnType<AgentWorkerExecutor['execute']>>;
+
+        if (streaming) {
+          result = await this.runWorkerExecutionStreaming(
+            workerId,
+            swarmRunId,
+            shardInput,
+            worker.timeoutMs,
+            {
+              onMeta: (meta) => {
+                streaming.emit({
+                  type: 'worker_meta',
+                  nodeId,
+                  workerId: workerKey,
+                  provider: meta.provider,
+                  model: meta.model,
+                  baseURL: meta.baseURL,
+                  wave,
+                  shardIndex,
+                });
+              },
+              onDelta: (delta) => {
+                streaming.emit({
+                  type: 'delta',
+                  nodeId,
+                  workerId: workerKey,
+                  delta,
+                  wave,
+                  shardIndex,
+                });
+              },
+            },
+          );
+        } else {
+          result = await this.executeWithTimeout(
+            workerId,
+            swarmRunId,
+            shardInput,
+            worker.timeoutMs,
+          );
+        }
+
+        await this.swarmRunsService.appendAgentRun(swarmRunId, result.agentRunId);
+        const shardLatencyMs = Date.now() - shardStarted;
+
+        if (streaming) {
+          streaming.emit({
+            type: 'worker_done',
+            nodeId,
+            workerId: workerKey,
+            agentRunId: result.agentRunId.toString(),
+            output: result.output,
+            latencyMs: shardLatencyMs,
+            step,
+            wave,
+            shardIndex,
+            inferenceRequest: shardInput,
+            inference: result.inference,
+            messages: result.messages,
+          });
+          streaming.emit({
+            type: 'scale_shard_done',
+            nodeId,
+            shardIndex,
+            wave,
+            latencyMs: shardLatencyMs,
+          });
+        }
+
+        return result.output;
+      }),
+    );
+
+    const output = buildScalableWorkerOutput(
+      shardOutputs,
+      readScalableOutputArrayKey(scalableConfig),
+    );
+
+    if (streaming) {
+      streaming.emit({
+        type: 'scale_collapse',
+        nodeId,
+        wave,
+      });
+      streaming.emit({
+        type: 'node_done',
+        nodeId,
+        nodeKind: 'worker',
+        nodeName: worker.name,
+        step,
+        wave,
+        output,
+        latencyMs: Date.now() - nodeStarted,
+      });
+    }
+
+    return output;
   }
 
   private getReadyNodeIds(
@@ -3231,11 +3579,13 @@ export class SwarmOrchestratorService {
         fromNode?.kind === GraphNodeKind.IF_ELSE ||
         fromNode?.kind === GraphNodeKind.WHILE ||
         fromNode?.kind === GraphNodeKind.SCRAPER ||
+        fromNode?.kind === GraphNodeKind.RESEARCH_PAPERS ||
         fromNode?.kind === GraphNodeKind.SWARM ||
         fromNode?.kind === GraphNodeKind.USER_APPROVAL ||
         (fromOutput as IfElseNodeOutput | undefined)?.kind === 'ifelse' ||
         (fromOutput as WhileNodeOutput | undefined)?.kind === 'while' ||
         (fromOutput as ScraperNodeOutput | undefined)?.kind === 'scraper' ||
+        (fromOutput as ResearchPapersNodeOutput | undefined)?.kind === 'research_papers' ||
         (fromOutput as SwarmNodeOutput | undefined)?.kind === 'swarm' ||
         (fromOutput as UserApprovalNodeOutput | undefined)?.kind === 'user_approval';
 
@@ -3347,6 +3697,16 @@ export class SwarmOrchestratorService {
       );
     }
 
+    if ((fromOutput as ResearchPapersNodeOutput | undefined)?.kind === 'research_papers') {
+      return this.resolveBranchIncomingEdge(
+        edge,
+        graph,
+        graphIndex,
+        fromKey,
+        (fromOutput as ResearchPapersNodeOutput).branchHandle,
+      );
+    }
+
     if ((fromOutput as SwarmNodeOutput | undefined)?.kind === 'swarm') {
       return this.resolveBranchIncomingEdge(
         edge,
@@ -3374,6 +3734,16 @@ export class SwarmOrchestratorService {
         graphIndex,
         fromKey,
         (fromOutput as ScraperNodeOutput | undefined)?.branchHandle ?? '',
+      );
+    }
+
+    if (fromNode?.kind === GraphNodeKind.RESEARCH_PAPERS) {
+      return this.resolveBranchIncomingEdge(
+        edge,
+        graph,
+        graphIndex,
+        fromKey,
+        (fromOutput as ResearchPapersNodeOutput | undefined)?.branchHandle ?? '',
       );
     }
 
@@ -3462,6 +3832,13 @@ export class SwarmOrchestratorService {
     }
 
     if (fromNode?.kind === GraphNodeKind.SCRAPER && branchHandle === SCRAPER_SUCCESS_HANDLE) {
+      return 'satisfied';
+    }
+
+    if (
+      fromNode?.kind === GraphNodeKind.RESEARCH_PAPERS &&
+      branchHandle === RESEARCH_PAPERS_SUCCESS_HANDLE
+    ) {
       return 'satisfied';
     }
 

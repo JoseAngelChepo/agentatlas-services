@@ -242,6 +242,12 @@ function resolvePromptPath(path: string, input: AgentWorkerRunInput): unknown {
       if (flat !== undefined) {
         return flat;
       }
+      // Scalable shard: {{papers.item}} / {{papers.item.name}} → current array element.
+      if (parts.length >= 2 && parts[1] === 'item' && input.runInput?.item !== undefined) {
+        return parts.length === 2
+          ? input.runInput.item
+          : getNested(input.runInput.item, parts.slice(2));
+      }
       return undefined;
     }
   }

@@ -83,7 +83,7 @@ export class AgentWorker {
 
   /**
    * Platform tools the worker may invoke via OpenAI function calling
-   * (e.g. `webpage_scrape` for Cloudflare Browser Run).
+   * (e.g. `webpage_scrape` for Firecrawl scrape).
    */
   @Prop({ type: [String], default: [] })
   agentTools: string[];

@@ -73,6 +73,9 @@ export function resolveUpstreamPayloadForNode(
   if (fromNode?.kind === GraphNodeKind.SCRAPER) {
     return nodeOut ?? null;
   }
+  if (fromNode?.kind === GraphNodeKind.RESEARCH_PAPERS) {
+    return nodeOut ?? null;
+  }
   if (fromNode?.kind === GraphNodeKind.SWARM) {
     const swarmOut = nodeOut as SwarmNodeOutput | undefined;
     return swarmOut?.output ?? nodeOut ?? null;
@@ -210,6 +213,13 @@ function indexUpstreamFromNode(
   if (fromNode.kind === GraphNodeKind.SCRAPER) {
     upstream.push(payload);
     upstreamBySlug.scraper = payload;
+    indexOutputFields(payload, upstreamByField);
+    return;
+  }
+
+  if (fromNode.kind === GraphNodeKind.RESEARCH_PAPERS) {
+    upstream.push(payload);
+    upstreamBySlug.research_papers = payload;
     indexOutputFields(payload, upstreamByField);
     return;
   }

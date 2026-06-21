@@ -68,6 +68,12 @@ function predecessorMetaFromFromNode(
       workerName: 'Scraper',
     };
   }
+  if (fromNode?.kind === GraphNodeKind.RESEARCH_PAPERS) {
+    return {
+      workerId: fromNodeId,
+      workerName: 'Research papers',
+    };
+  }
   if (fromNode?.kind === GraphNodeKind.SWARM) {
     const data = parseSwarmNodeData(fromNode.data);
     return {

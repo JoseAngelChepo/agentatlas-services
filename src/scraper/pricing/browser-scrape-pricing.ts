@@ -1,25 +1,21 @@
 /**
- * Cloudflare Browser Run list pricing (no free tier applied in estimates).
- * @see https://developers.cloudflare.com/browser-rendering/pricing/
+ * Firecrawl scrape list pricing (credit-based estimate).
+ * @see https://www.firecrawl.dev/pricing
  */
-export const BROWSER_SCRAPE_USD_PER_HOUR = 0.09;
+export const FIRECRAWL_SCRAPE_USD_PER_REQUEST = 0.001;
 
-/** Typical scrape duration when `latencyMs` was not recorded (~2–3s). */
-export const BROWSER_SCRAPE_DEFAULT_REQUEST_MS = 2_500;
+/** Typical scrape duration when `latencyMs` was not recorded. */
+export const FIRECRAWL_SCRAPE_DEFAULT_REQUEST_MS = 3_000;
 
-export function computeBrowserScrapeCostUsd(browserDurationMs: number): number {
-  if (browserDurationMs <= 0) {
-    return 0;
-  }
-  const hours = browserDurationMs / 3_600_000;
-  return roundUsd(hours * BROWSER_SCRAPE_USD_PER_HOUR);
+export function computeScrapeCostUsd(_browserDurationMs?: number): number {
+  return roundUsd(FIRECRAWL_SCRAPE_USD_PER_REQUEST);
 }
 
 export function effectiveScrapeRequestDurationMs(latencyMs: number | undefined): number {
   if (typeof latencyMs === 'number' && Number.isFinite(latencyMs) && latencyMs > 0) {
     return Math.floor(latencyMs);
   }
-  return BROWSER_SCRAPE_DEFAULT_REQUEST_MS;
+  return FIRECRAWL_SCRAPE_DEFAULT_REQUEST_MS;
 }
 
 function roundUsd(value: number): number {

@@ -1,6 +1,6 @@
 import type { ScrapeRequestDocument } from '../../scraper/schemas/scrape-request.schema';
 import {
-  computeBrowserScrapeCostUsd,
+  computeScrapeCostUsd,
   effectiveScrapeRequestDurationMs,
 } from '../../scraper/pricing/browser-scrape-pricing';
 
@@ -28,7 +28,7 @@ export function buildScrapeUsageReport(
       scrapeRequestId: doc.id,
       url: doc.url,
       latencyMs,
-      costUsd: computeBrowserScrapeCostUsd(latencyMs),
+      costUsd: computeScrapeCostUsd(latencyMs),
       status: doc.status,
     };
   });

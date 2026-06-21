@@ -4,6 +4,7 @@ import type { AgentWorkerRunInput } from '../context/swarm-context.types';
 export type SwarmGraphNodeKind =
   | 'start'
   | 'scraper'
+  | 'research_papers'
   | 'swarm'
   | 'ifelse'
   | 'while'
@@ -52,12 +53,38 @@ export type SwarmSseEvent =
       fromNodeId?: string;
     }
   | {
+      type: 'scale_expand';
+      nodeId: string;
+      count: number;
+      wave: number;
+    }
+  | {
+      type: 'scale_shard_start';
+      nodeId: string;
+      shardIndex: number;
+      wave: number;
+    }
+  | {
+      type: 'scale_shard_done';
+      nodeId: string;
+      shardIndex: number;
+      wave: number;
+      latencyMs: number;
+    }
+  | {
+      type: 'scale_collapse';
+      nodeId: string;
+      wave: number;
+    }
+  | {
       type: 'worker_start';
       nodeId: string;
       workerId: string;
       workerName: string;
       step: number;
       wave: number;
+      /** Present when the worker run is one shard of a scalable agent node. */
+      shardIndex?: number;
     }
   | {
       type: 'worker_meta';
@@ -67,6 +94,7 @@ export type SwarmSseEvent =
       model: string;
       baseURL: string;
       wave: number;
+      shardIndex?: number;
     }
   | {
       type: 'delta';
@@ -74,6 +102,7 @@ export type SwarmSseEvent =
       workerId: string;
       delta: string;
       wave: number;
+      shardIndex?: number;
     }
   | {
       type: 'worker_done';
@@ -84,6 +113,7 @@ export type SwarmSseEvent =
       latencyMs: number;
       step: number;
       wave: number;
+      shardIndex?: number;
       /** Full payload used by executor/inference call for this worker. */
       inferenceRequest?: AgentWorkerRunInput;
       /** Provider request/response trace persisted on the agent run. */

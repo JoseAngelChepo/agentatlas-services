@@ -24,6 +24,11 @@ export interface AgentWorkerRunInput {
   runInput: Record<string, unknown>;
   /** Extra messages after Instructions — see `buildWorkerChatMessages`. */
   promptMessages?: Array<{ role: 'system' | 'user'; content: string }>;
+  /**
+   * Platform agent tools wired at inference (`worker.agentTools` → OpenAI functions).
+   * Empty means no function tools were connected — Instructions text alone does not enable tools.
+   */
+  connectedAgentTools?: string[];
 }
 
 export interface SwarmContextOptions {

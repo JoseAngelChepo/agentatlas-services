@@ -3,6 +3,7 @@ export enum GraphNodeKind {
   IF_ELSE = 'ifelse',
   WHILE = 'while',
   SCRAPER = 'scraper',
+  RESEARCH_PAPERS = 'research_papers',
   SWARM = 'swarm',
   START = 'start',
   USER_APPROVAL = 'user_approval',

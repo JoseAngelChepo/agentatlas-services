@@ -110,11 +110,15 @@ export class LlmWorkerExecutorService implements AgentWorkerExecutor {
             registryCatalog: this.toolRegistry.list(),
             runSwarmCatalog: this.swarmAsToolService.runSwarmCatalogEntry(),
           }),
-          { hasSwarmTools: resolvedSwarmTools.length > 0 },
+          { hasSwarmTools: resolvedSwarmTools.length > 0, hasRegistryTools: registryToolIds.length > 0 },
         )
       : null;
     const messages = buildWorkerChatMessages(input, { toolsPromptBlock });
-    const agentRun = await this.agentRunsService.createPending(workerId, swarmRunId, input);
+    const enrichedInput: AgentWorkerRunInput = {
+      ...input,
+      connectedAgentTools: registryToolIds,
+    };
+    const agentRun = await this.agentRunsService.createPending(workerId, swarmRunId, enrichedInput);
 
     const timeoutMs = Math.min(
       worker.timeoutMs,
@@ -193,16 +197,21 @@ export class LlmWorkerExecutorService implements AgentWorkerExecutor {
       ];
 
       const inference = {
-        request:
-          completion.rawRequest ??
-          ({
-            model: llm.model,
-            messages,
-            temperature: llm.temperature,
-            maxTokens: llm.maxTokens,
-            jsonMode: llm.jsonMode,
-            outputSchema: useStructuredOutput ? outputSchema : undefined,
-          } as Record<string, unknown>),
+        request: {
+          ...(completion.rawRequest ??
+            ({
+              model: llm.model,
+              messages,
+              temperature: llm.temperature,
+              maxTokens: llm.maxTokens,
+              jsonMode: llm.jsonMode,
+              outputSchema: useStructuredOutput ? outputSchema : undefined,
+            } as Record<string, unknown>)),
+          connectedAgentTools: registryToolIds,
+          toolFunctionsExposed: (openaiTools.functions ?? []).map((fn) => fn.name),
+          toolsPromptAttached: Boolean(toolsPromptBlock),
+          toolChoice: openaiTools.toolChoice ?? null,
+        },
         response: {
           provider: completion.provider,
           baseURL: completion.baseURL,
