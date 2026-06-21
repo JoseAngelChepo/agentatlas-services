@@ -192,6 +192,48 @@ export function serializeSwarmRun(doc: SwarmRunDocument) {
   };
 }
 
+export function serializePublicSwarmRun(doc: SwarmRunDocument) {
+  const base = serializeSwarmRun(doc);
+  const {
+    triggeredBy: _triggeredBy,
+    pendingApprovalId: _pendingApprovalId,
+    hasCheckpoint: _hasCheckpoint,
+    ...publicRun
+  } = base;
+  return publicRun;
+}
+
+export function serializePublicAgentRun(
+  doc: AgentRunDocument,
+  workerName?: string | null,
+) {
+  const base = serializeAgentRun(doc);
+  const { inference: _inference, ...publicRun } = base;
+  return {
+    ...publicRun,
+    workerName: workerName ?? null,
+  };
+}
+
+export function serializePublicSwarmRunLogs(params: {
+  swarm: SwarmDocument;
+  swarmRun: SwarmRunDocument;
+  agentRuns: AgentRunDocument[];
+  workers: Map<string, AgentWorkerDocument>;
+}) {
+  return {
+    swarm: {
+      id: params.swarm.id,
+      name: params.swarm.name,
+      goal: params.swarm.goal,
+    },
+    swarmRun: serializePublicSwarmRun(params.swarmRun),
+    agentRuns: params.agentRuns.map((run) =>
+      serializePublicAgentRun(run, params.workers.get(run.workerId.toString())?.name),
+    ),
+  };
+}
+
 export function serializeAgentRun(doc: AgentRunDocument) {
   const { createdAt, updatedAt } = doc.toObject() as WithTimestamps;
   const inferenceRaw =

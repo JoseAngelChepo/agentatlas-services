@@ -57,6 +57,17 @@ export class SwarmRunsService {
     return doc;
   }
 
+  /** Finished runs only — for public demo/share links (run id acts as the share token). */
+  async findByIdForPublicView(id: string): Promise<SwarmRunDocument> {
+    const doc = await this.findById(id);
+
+    if (doc.status !== RunStatus.DONE && doc.status !== RunStatus.FAILED) {
+      throw new NotFoundException('Swarm run not found');
+    }
+
+    return doc;
+  }
+
   async findByPendingNeedsInputId(needsInputId: string): Promise<SwarmRunDocument> {
     const doc = await this.swarmRunModel.findOne({ pendingNeedsInputId: needsInputId }).exec();
     if (!doc) {

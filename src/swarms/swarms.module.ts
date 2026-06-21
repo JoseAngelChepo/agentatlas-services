@@ -28,6 +28,7 @@ import { AdminSwarmRunsController } from './controllers/admin-swarm-runs.control
 import { AdminSwarmsController } from './controllers/admin-swarms.controller';
 import { AgentWorkersController } from './controllers/agent-workers.controller';
 import { SwarmRunApprovalsController } from './controllers/swarm-run-approvals.controller';
+import { PublicSwarmRunsController } from './controllers/public-swarm-runs.controller';
 import { SwarmRunsController } from './controllers/swarm-runs.controller';
 import { SwarmsController } from './controllers/swarms.controller';
 import { SwarmRunApprovalsService } from './services/swarm-run-approvals.service';
@@ -55,6 +56,7 @@ import { SwarmAsToolService } from './services/swarm-as-tool.service';
     SwarmsController,
     SwarmRunApprovalsController,
     SwarmRunsController,
+    PublicSwarmRunsController,
     AdminSwarmsController,
     AdminSwarmRunsController,
     AdminAgentWorkersController,
